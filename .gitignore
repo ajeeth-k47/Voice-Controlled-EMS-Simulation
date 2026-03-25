@@ -1,0 +1,37 @@
+.env
+.conda/
+.cursor/
+__pycache__/
+*.pyc
+
+# local debug / logs
+*.log
+*.txt
+llm_last_result.json
+simulation_log*.txt
+
+# local test artifacts
+*_test.*
+test_*.py
+debug_*
+out.*
+temp_*
+
+# big/binary docs
+*.pdf
+*.docx
+*.zip
+*.wav
+
+# generated simulation assets
+simulations/
+Evaluation/generated_mot_and_sto_rawfiles/
+Evaluation/report_latest/
+
+# local OpenSim exports
+*.osim
+*.sto
+backend/test_motion*
+frontend/public/test_model.gltf
+frontend/public/*.gltf
+
