@@ -1,44 +1,30 @@
-# LLM Hand Movement App (Master Thesis)
+Voice Controlled EMS Simulation (Master Thesis)
 
-## Startup Instructions
+This application allows users to simulate hand/body movements based on LLM-generated responses using the OpenSim simulation tool. It uses `"llama-3.3-70b-versatile"` to generate information about muscles, EMS parameters, the corresponding muscle activation values for each muscle, and joint angles that trigger the user-requested movement.
 
-### 1. Backend (FastAPI + Simulation)
-The simulation and hardware mock run on the backend.
-**Command:**
-```bash
-conda activate opensim-env
-python -m uvicorn backend.main:app --reload --port 8000
-```
+Initially, the application used a ChromaDB vector database to store muscle and EMS values for 4–5 hand movements. Because that approach limited users to only the movements in the database, the current version uses the loaded OpenSim model information (available muscles and joints) together with the user prompt to generate any movement that is possible with the loaded model.
 
-### 2. Frontend (React)
-The 3D Interface and Voice Control.
-**Command:**
-```bash
-cd frontend
-npm run dev
-```
+With further development, this prototype can be integrated with hardware (an EMS device) to help physiotherapists or wearable EMS systems for movement training, rehabilitation, and sports, without requiring manual EMS parameter configuration every time.
 
-### 3. Evaluation — generated motions to Excel
-After generating `*_coords.mot` files under `simulations/`, export them to `Evaluation/Generated/`:
+Instruction to run the application:
 
-```bash
-python backend/mot_to_excel.py --input simulations --output_dir Evaluation/Generated
-```
+1. Prerequisites:
+- Python 3.10.x, Node 18 or later
+- OpenSim 4.5
+- Conda/Miniconda (or any environment manager)
+- GROQ API Key
 
-Requires: `pandas`, `openpyxl` (see `requirements.txt`).
+2. Create an environment file with the following keys:
+- GROQ_API_KEY: `<your API key>`
+- OPENSIM_MODEL_PATH: `<path to an OpenSim model, e.g., wristmod2prueb2.osim or SoccerKickingModel.osim>`
 
-### 4. Evaluation report
-Fill `Evaluation/Baseline/` and `Evaluation/Generated/` (see `Evaluation/README.md`), then:
+3. Start the backend (FastAPI + simulation):
+- Create/activate a conda environment to run the application
+- `conda activate <opensim-env>`
+- `pip install -r requirements.txt`
+- `python -m uvicorn backend.main:app --reload --port 8000`
 
-```bash
-python Evaluation/generate_evaluation_report.py
-```
-
-Output: `Evaluation/report/` (CSV + Markdown). Logic lives only in `Evaluation/generate_evaluation_report.py`.
-
-**Metrics (angles):** **`Evaluation/README.md`**.
-
-### Joint angles (LLM → OpenSim)
-- **`backend/joint_angle_postprocess.py`**: if the LLM omits DIP joints but PIP is flexed, **DIP is set from PIP** (capped at 90°) before `simulate_gesture` runs, so `*_coords.mot` is not missing fingertip flex.
-- **`backend/llm_service.py`**: prompt + JSON example now list **DIP** and thumb-related coordinates (`TCP2M_flex`, `TCP2M2_flex`, etc.) so the model outputs complete chains where possible.
+4. Start the frontend (React app):
+- `cd frontend`
+- `npm run dev`
 
