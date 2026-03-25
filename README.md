@@ -6,6 +6,14 @@ Initially, the application used a ChromaDB vector database to store muscle and E
 
 With further development, this prototype can be integrated with hardware (an EMS device) to help physiotherapists or wearable EMS systems for movement training, rehabilitation, and sports, without requiring manual EMS parameter configuration every time.
 
+## **Demo GIFs**
+
+![Hand close demo](gifs/handClose.gif)
+
+![Kick demo](gifs/Kick.gif)
+
+![Peace sign demo](gifs/peaceSign.gif)
+
 ## **Instruction to run the application**
 
 ### **1. Prerequisites**
