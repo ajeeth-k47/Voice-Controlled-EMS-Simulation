@@ -1,9 +1,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { API_URL } from '../api';
 
 const ControlPanel = ({ onCommandProcessed, onAudioComplete, isProcessing, isListeningExternal, onListeningChange }) => {
     const [input, setInput] = useState("");
     const [isListening, setIsListening] = useState(false);
+    const transcriptBufferRef = useRef("");
+    const recognitionRef = useRef(null);
 
     // Notify parent
     useEffect(() => {
@@ -20,15 +23,71 @@ const ControlPanel = ({ onCommandProcessed, onAudioComplete, isProcessing, isLis
         // so we ignore isListeningExternal === false
     }, [isListeningExternal]);
 
+    const getBrowserSpeechRecognition = () => {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) return null;
+        return SpeechRecognition;
+    };
+
     const startListening = async () => {
         if (isListening) return;
         setIsListening(true);
         setInput(""); // Clear previous text
-        console.log("Triggering server-side listening...");
+        transcriptBufferRef.current = "";
+
+        const SpeechRecognition = getBrowserSpeechRecognition();
+        if (SpeechRecognition) {
+            try {
+                const recognition = new SpeechRecognition();
+                recognitionRef.current = recognition;
+
+                recognition.lang = "en-US";
+                recognition.interimResults = true;
+                recognition.maxAlternatives = 1;
+                recognition.continuous = false;
+
+                recognition.onresult = (event) => {
+                    let fullText = "";
+                    for (let i = 0; i < event.results.length; i++) {
+                        fullText += event.results[i][0].transcript;
+                    }
+                    const clean = (fullText || "").trim();
+                    transcriptBufferRef.current = clean;
+                    setInput(clean);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error("Browser STT error:", event?.error || event);
+                };
+
+                recognition.onend = async () => {
+                    const finalText = (transcriptBufferRef.current || "").trim();
+
+                    if (onAudioComplete) {
+                        onAudioComplete({
+                            success: !!finalText,
+                            transcribed_text: finalText,
+                            message: finalText ? undefined : "No speech detected.",
+                        });
+                    } else if (finalText && onCommandProcessed) {
+                        onCommandProcessed(finalText);
+                    }
+
+                    setIsListening(false);
+                };
+
+                recognition.start();
+                return;
+            } catch (e) {
+                console.error("Browser STT init failed, falling back:", e);
+            }
+        }
+
+        console.log("Falling back to server-side listening...");
 
         try {
             // Call Backend
-            const response = await fetch('http://localhost:8000/api/listen', {
+            const response = await fetch(`${API_URL}/api/listen`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -67,7 +126,14 @@ const ControlPanel = ({ onCommandProcessed, onAudioComplete, isProcessing, isLis
     };
 
     const toggleListening = () => {
-        if (isListening) return; // Cannot stop early in this simple implementation
+        if (isListening) {
+            try {
+                recognitionRef.current?.stop?.();
+            } catch {
+                // ignore
+            }
+            return;
+        }
         startListening();
     };
 

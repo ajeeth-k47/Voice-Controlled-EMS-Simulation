@@ -1,6 +1,6 @@
 # **Voice Controlled EMS Simulation (Master Thesis)**
 
-This application allows users to simulate hand/body movements based on LLM-generated responses using the OpenSim simulation tool. It uses `"llama-3.3-70b-versatile"` to generate information about muscles, EMS parameters, the corresponding muscle activation values for each muscle, and joint angles that trigger the user-requested movement.
+This application allows users to simulate hand/body movements based on LLM generated responses using the OpenSim simulation tool. It uses `"llama-3.3-70b-versatile"` to generate information about muscles, EMS parameters, the corresponding muscle activation values for each muscle, and joint angles that trigger the user requested movement.
 
 Initially, the application used a ChromaDB vector database to store muscle and EMS values for 4–5 hand movements. Because that approach limited users to only the movements in the database, the current version uses the loaded OpenSim model information (available muscles and joints) together with the user prompt to generate any movement that is possible with the loaded model.
 

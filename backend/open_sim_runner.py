@@ -145,11 +145,64 @@ class HandGestureSimulator:
         
         self.model.realizeDynamics(self.state)
 
+    def _normalize_joint_angles(self, gesture_key, joint_angles):
+        """
+        Normalize LLM/user-provided joint keys to model coordinate names.
+        Also inject a simple wrist fallback for "hi/wave" gestures so the wrist
+        visibly moves even when wrist keys are omitted.
+        """
+        if not isinstance(joint_angles, dict):
+            return {}
+
+        coord_names = [self.joints.get(i).getName() for i in range(self.joints.getSize())]
+        coord_set = set(coord_names)
+        normalized = {}
+
+        # Common aliases seen from LLM/user phrasing -> wrist model coordinate names
+        alias_map = {
+            "wrist_flexion": "flexion",
+            "wrist_extension": "flexion",  # sign handled by value
+            "wrist_deviation": "deviation",
+            "radial_deviation": "deviation",
+            "ulnar_deviation": "deviation",
+        }
+
+        for raw_key, raw_val in joint_angles.items():
+            try:
+                val = float(raw_val)
+            except (TypeError, ValueError):
+                continue
+
+            key = str(raw_key).strip()
+            if key in coord_set:
+                normalized[key] = val
+                continue
+
+            lower_key = key.lower().strip()
+            mapped = alias_map.get(lower_key)
+            if mapped and mapped in coord_set:
+                # Keep the largest absolute target if same coord appears multiple times.
+                prev = normalized.get(mapped)
+                if prev is None or abs(val) > abs(prev):
+                    normalized[mapped] = val
+
+        g = (gesture_key or "").lower()
+        is_wave_like = any(token in g for token in ["hi", "wave", "hello"])
+        if is_wave_like and "deviation" in coord_set and "deviation" not in normalized:
+            normalized["deviation"] = 20.0
+        if is_wave_like and "flexion" in coord_set and "flexion" not in normalized:
+            normalized["flexion"] = 8.0
+
+        return normalized
+
     def simulate_gesture(self, gesture_key, amplitude, frequency, pulse_width, muscle_list, output_dir=".", custom_angles=None, multi_channel_params=None):
         """
         Run simulation for a specific gesture using provided parameters
         """
         # Fill missing DIP flex from PIP when LLM omits distal joints (avoids DIP=0 in *_coords.mot)
+        if custom_angles is not None and isinstance(custom_angles, dict):
+            custom_angles = self._normalize_joint_angles(gesture_key, custom_angles)
+
         if custom_angles is not None and isinstance(custom_angles, dict) and len(custom_angles) > 0:
             try:
                 from backend.joint_angle_postprocess import augment_joint_angles
@@ -237,16 +290,22 @@ class HandGestureSimulator:
 
                     for step in range(num_steps):
                         t = duration * float(step) / float(num_steps - 1) if num_steps > 1 else 0.0
-                        # Half-sine profile: 0 -> peak -> 0
+                        # Default profile: 0 -> peak -> 0
                         profile = math.sin(math.pi * (t / duration)) if duration > 0 else 0.0
                         if profile < 0.0:
                             profile = 0.0
 
                         row = [f"{t:.6f}"]
+                        wave_like = any(token in (gesture_key or "").lower() for token in ["hi", "wave", "hello"])
                         for i in range(n_coords):
                             cname = self.joints.get(i).getName()
                             peak_deg = float(custom_angles.get(cname, 0.0) or 0.0)
-                            row.append(f"{(peak_deg * profile):.6f}")
+                            if wave_like and cname == "deviation":
+                                # Wrist "hi/wave": side-to-side oscillation around zero.
+                                wave_profile = math.sin(4.0 * math.pi * (t / duration)) if duration > 0 else 0.0
+                                row.append(f"{(peak_deg * wave_profile):.6f}")
+                            else:
+                                row.append(f"{(peak_deg * profile):.6f}")
                         f.write("\t".join(row) + "\n")
 
                 print(f"Coordinate motion file saved to: {os.path.abspath(coord_mot_path)}")
